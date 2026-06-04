@@ -1,59 +1,288 @@
 {
-    "sample_application": {
-        "key": "32134bbb-5278-43c0-a6ca-4046a5edeb9f",
-        "name": "sample_application",
-        "display_name": "Sample Application",
-        "type": "DEV",
-        "visibility": "PUB",
+    "pivot_water_map": {
+        "name": "pivot_water_map",
+        "display_name": "Pivot As-Applied Water Map",
+        "type": "PRO",
+        "visibility": "COR",
         "allow_many": true,
-        "description": "A template application for Doover",
+        "description": "Visualises a centre pivot's as-applied water map: reads recorded flow / angular-position / end-gun tag history and renders per-sector applied depth (mm) as coloured annular sectors on a Google Map. All computation is client-side in the widget.",
         "long_description": "README.md",
         "depends_on": [],
         "owner_org_key": "",
-        "image_name": "ghcr.io/getdoover/app-template:main",
-        "container_registry_profile_key": "",
-        "build_args": "--platform linux/amd64,linux/arm64",
+        "handler": "src.pivot_water_map.handler",
+        "lambda_config": {
+            "Environment": {},
+            "Runtime": "python3.13",
+            "Timeout": 300,
+            "Handler": "src.pivot_water_map.handler",
+            "MemorySize": 128,
+            "Architectures": [
+                "arm64"
+            ]
+        },
+        "image_name": null,
+        "repo_branch": "main",
+        "staging_config": {},
+        "export_config_command": "export-config-watermap",
+        "export_ui_command": "export-ui-watermap",
+        "build_widget_command": "npm --prefix widget run build",
+        "widget": "widget/assets/PivotWaterMapWidget.js",
+        "run_command": null,
+        "key": null,
         "config_schema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "$id": "",
             "title": "$default",
             "type": "object",
             "properties": {
-                "digital_outputs_enabled": {
-                    "title": "Digital Outputs Enabled",
-                    "x-name": "digital_outputs_enabled",
+                "flow_tag": {
+                    "title": "Water Flow Tag",
+                    "x-name": "flow_tag",
+                    "x-hidden": false,
+                    "type": "object",
+                    "x-required": true,
+                    "description": "Tag carrying the pivot's water flow rate.",
+                    "x-position": 0,
+                    "properties": {
+                        "app_name": {
+                            "title": "Application",
+                            "x-name": "app_name",
+                            "x-hidden": false,
+                            "format": "doover-application",
+                            "type": "string",
+                            "x-required": true,
+                            "description": "App on this agent that publishes the tag.",
+                            "x-position": 1
+                        },
+                        "tag_name": {
+                            "title": "Tag Name",
+                            "x-name": "tag_name",
+                            "x-hidden": false,
+                            "type": "string",
+                            "x-required": true,
+                            "description": "Name of the tag within that app.",
+                            "x-position": 2
+                        }
+                    },
+                    "additionalElements": true,
+                    "required": [
+                        "app_name",
+                        "tag_name"
+                    ],
+                    "x-collapsible": true,
+                    "x-defaultCollapsed": false
+                },
+                "position_tag": {
+                    "title": "Pivot Position Tag",
+                    "x-name": "position_tag",
+                    "x-hidden": false,
+                    "type": "object",
+                    "x-required": true,
+                    "description": "Tag carrying the pivot's angular position in degrees (0 = North, increasing clockwise).",
+                    "x-position": 1,
+                    "properties": {
+                        "app_name": {
+                            "title": "Application",
+                            "x-name": "app_name",
+                            "x-hidden": false,
+                            "format": "doover-application",
+                            "type": "string",
+                            "x-required": true,
+                            "description": "App on this agent that publishes the tag.",
+                            "x-position": 1
+                        },
+                        "tag_name": {
+                            "title": "Tag Name",
+                            "x-name": "tag_name",
+                            "x-hidden": false,
+                            "type": "string",
+                            "x-required": true,
+                            "description": "Name of the tag within that app.",
+                            "x-position": 2
+                        }
+                    },
+                    "additionalElements": true,
+                    "required": [
+                        "app_name",
+                        "tag_name"
+                    ],
+                    "x-collapsible": true,
+                    "x-defaultCollapsed": false
+                },
+                "end_gun_tag": {
+                    "title": "End-gun Tag",
+                    "x-name": "end_gun_tag",
                     "x-hidden": false,
                     "type": [
-                        "boolean",
+                        "object",
                         "null"
                     ],
                     "x-required": false,
-                    "default": true,
-                    "x-position": 0
+                    "description": "Optional boolean tag indicating the end-gun is on. Leave blank if the pivot has no end-gun.",
+                    "default": null,
+                    "x-position": 2,
+                    "properties": {
+                        "app_name": {
+                            "title": "Application",
+                            "x-name": "app_name",
+                            "x-hidden": false,
+                            "format": "doover-application",
+                            "type": "string",
+                            "x-required": true,
+                            "description": "App on this agent that publishes the tag.",
+                            "x-position": 1
+                        },
+                        "tag_name": {
+                            "title": "Tag Name",
+                            "x-name": "tag_name",
+                            "x-hidden": false,
+                            "type": "string",
+                            "x-required": true,
+                            "description": "Name of the tag within that app.",
+                            "x-position": 2
+                        }
+                    },
+                    "additionalElements": true,
+                    "required": [
+                        "app_name",
+                        "tag_name"
+                    ],
+                    "x-collapsible": true,
+                    "x-defaultCollapsed": false
                 },
-                "a_funny_message": {
-                    "title": "A Funny Message",
-                    "x-name": "a_funny_message",
+                "flow_units": {
+                    "enum": [
+                        "L/s",
+                        "L/min",
+                        "m3/h",
+                        "US gpm"
+                    ],
+                    "title": "Flow Units",
+                    "x-name": "flow_units",
                     "x-hidden": false,
-                    "type": "string",
-                    "x-required": true,
-                    "x-position": 1
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Units the flow tag is reported in.",
+                    "default": "L/s",
+                    "x-position": 3
                 },
-                "simulator_app_key": {
-                    "title": "Simulator App Key",
-                    "x-name": "simulator_app_key",
+                "pivot_centre_lat": {
+                    "title": "Pivot Centre Latitude",
+                    "x-name": "pivot_centre_lat",
                     "x-hidden": false,
-                    "format": "doover-resource-application",
-                    "type": "string",
+                    "type": "number",
                     "x-required": true,
-                    "description": "The app key for the simulator",
-                    "x-position": 2
+                    "description": "Latitude of the pivot point (decimal degrees).",
+                    "x-position": 4
+                },
+                "pivot_centre_lon": {
+                    "title": "Pivot Centre Longitude",
+                    "x-name": "pivot_centre_lon",
+                    "x-hidden": false,
+                    "type": "number",
+                    "x-required": true,
+                    "description": "Longitude of the pivot point (decimal degrees).",
+                    "x-position": 5
+                },
+                "wetted_radius_m": {
+                    "title": "Wetted Radius (m)",
+                    "x-name": "wetted_radius_m",
+                    "x-hidden": false,
+                    "type": "number",
+                    "x-required": true,
+                    "description": "Radius watered by the pivot span, in metres.",
+                    "x-position": 6
+                },
+                "end_gun_radius_m": {
+                    "title": "End-gun Extra Radius (m)",
+                    "x-name": "end_gun_radius_m",
+                    "x-hidden": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Additional radius watered when the end-gun is on, in metres.",
+                    "default": 0.0,
+                    "x-position": 7
+                },
+                "sector_resolution_deg": {
+                    "title": "Sector Resolution (deg)",
+                    "x-name": "sector_resolution_deg",
+                    "x-hidden": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Angular width of each map sector, in degrees.",
+                    "default": 1.0,
+                    "x-position": 8
+                },
+                "position_offset_deg": {
+                    "title": "Position Offset (deg)",
+                    "x-name": "position_offset_deg",
+                    "x-hidden": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Calibration offset added to the reported angle to align it with true North (clockwise positive).",
+                    "default": 0.0,
+                    "x-position": 9
+                },
+                "dormancy_days": {
+                    "title": "Event Dormancy (days)",
+                    "x-name": "dormancy_days",
+                    "x-hidden": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "A new irrigation event starts when flow resumes after at least this many days without flow.",
+                    "default": 5.0,
+                    "x-position": 10
+                },
+                "google_maps_api_key": {
+                    "title": "Google Maps API Key",
+                    "x-name": "google_maps_api_key",
+                    "x-hidden": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Google Maps JavaScript API key used to render the map. Set this per-deployment \u2014 it is intentionally not committed to the repo.",
+                    "default": null,
+                    "x-position": 11
+                },
+                "dv_app_position": {
+                    "title": "Position",
+                    "x-name": "dv_app_position",
+                    "x-hidden": true,
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Position of Application in UI Structure. Smaller numbers are closer to the top.",
+                    "default": 150,
+                    "x-position": 12,
+                    "minimum": 0
                 }
             },
             "additionalElements": true,
             "required": [
-                "a_funny_message",
-                "simulator_app_key"
+                "flow_tag",
+                "position_tag",
+                "pivot_centre_lat",
+                "pivot_centre_lon",
+                "wetted_radius_m"
             ]
         },
         "ui_schema": {
@@ -62,137 +291,167 @@
             "position": "$config.app().dv_app_position:number:100",
             "icon": null,
             "colour": null,
-            "defaultOpen": false,
+            "defaultOpen": true,
             "type": "uiApplication",
             "name": "$config.app().APP_KEY",
             "children": {
-                "is_working": {
-                    "name": "is_working",
+                "PivotWaterMap": {
+                    "name": "PivotWaterMap",
+                    "type": "uiRemoteComponent",
+                    "displayString": "As-Applied Water Map",
+                    "showActivity": true,
+                    "componentUrl": "$config.app().dv_widget_url",
+                    "position": 51,
+                    "hidden": false,
+                    "children": {},
+                    "scope": "PivotWaterMapWidget",
+                    "module": "./PivotWaterMapWidget",
+                    "app_key": "$config.app().APP_KEY"
+                }
+            }
+        },
+        "organisation_id": null,
+        "container_registry_profile_id": null,
+        "id": 188132319675027456,
+        "owner_org_id": null,
+        "code_repo_id": null,
+        "build_args": null,
+        "icon_url": null,
+        "banner_url": null,
+        "lambda_arn": null
+    },
+    "valley_irrigator": {
+        "name": "valley_irrigator",
+        "display_name": "Valley Irrigator",
+        "type": "DEV",
+        "visibility": "PUB",
+        "allow_many": true,
+        "description": "Device app for Valley centre-pivot panels (VCP over RS232). SKELETON \u2014 publishes flow / angular position / end-gun / pressure tags that the pivot water-map widget consumes.",
+        "long_description": "README.md",
+        "depends_on": [],
+        "owner_org_key": "",
+        "image_name": "ghcr.io/getdoover/pivot-irrigator:main",
+        "container_registry_profile_key": "",
+        "build_args": "--platform linux/amd64,linux/arm64",
+        "export_config_command": "export-config-valley",
+        "export_ui_command": "export-ui-valley",
+        "repo_branch": "main",
+        "key": null,
+        "config_schema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "",
+            "title": "$default",
+            "type": "object",
+            "properties": {
+                "serial_port": {
+                    "title": "Serial Port",
+                    "x-name": "serial_port",
+                    "x-hidden": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "RS232 serial device the Valley panel is wired to.",
+                    "default": "/dev/ttyS0",
+                    "x-position": 0
+                },
+                "baud_rate": {
+                    "title": "Baud Rate",
+                    "x-name": "baud_rate",
+                    "x-hidden": false,
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "RS232 baud rate for the VCP link.",
+                    "default": 9600,
+                    "x-position": 1
+                },
+                "poll_interval_s": {
+                    "title": "Poll Interval (s)",
+                    "x-name": "poll_interval_s",
+                    "x-hidden": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "How often to poll the panel over VCP.",
+                    "default": 10.0,
+                    "x-position": 2
+                },
+                "dv_app_position": {
+                    "title": "Position",
+                    "x-name": "dv_app_position",
+                    "x-hidden": true,
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "Position of Application in UI Structure. Smaller numbers are closer to the top.",
+                    "default": 100,
+                    "x-position": 3,
+                    "minimum": 0
+                }
+            },
+            "additionalElements": true,
+            "required": []
+        },
+        "ui_schema": {
+            "displayString": "$config.app().APP_DISPLAY_NAME",
+            "hidden": "$config.app().hidden:boolean:false:boolean:false",
+            "position": "$config.app().dv_app_position:number:100",
+            "icon": null,
+            "colour": null,
+            "defaultOpen": "$config.app().dv_app_default_open:boolean",
+            "type": "uiApplication",
+            "name": "$config.app().APP_KEY",
+            "children": {
+                "water_flow": {
+                    "name": "water_flow",
                     "type": "uiVariable",
-                    "displayString": "We Working?",
+                    "displayString": "Water Flow",
                     "showActivity": true,
                     "position": 51,
                     "hidden": false,
-                    "varType": "bool",
-                    "currentValue": "$tag.app().is_working:boolean:false"
+                    "varType": "float",
+                    "currentValue": "$tag.app().water_flow:number:0",
+                    "decPrecision": 1
                 },
-                "uptime": {
-                    "name": "uptime",
+                "pivot_position": {
+                    "name": "pivot_position",
                     "type": "uiVariable",
-                    "displayString": "Uptime",
+                    "displayString": "Pivot Position",
                     "showActivity": true,
                     "position": 52,
                     "hidden": false,
                     "varType": "float",
-                    "currentValue": "$tag.app().uptime:number:0"
+                    "currentValue": "$tag.app().pivot_position:number:0",
+                    "decPrecision": 1
                 },
-                "send_alert": {
-                    "name": "send_alert",
-                    "type": "uiButton",
-                    "displayString": "Send message as alert",
-                    "position": 1,
+                "system_pressure": {
+                    "name": "system_pressure",
+                    "type": "uiVariable",
+                    "displayString": "System Pressure",
+                    "showActivity": true,
+                    "position": 53,
                     "hidden": false,
-                    "currentValue": "$cmds.app().send_alert",
-                    "appKey": "$config.app().APP_KEY"
+                    "varType": "float",
+                    "currentValue": "$tag.app().system_pressure:number:0",
+                    "decPrecision": 1
                 },
-                "test_message": {
-                    "name": "test_message",
-                    "type": "uiTextInput",
-                    "displayString": "Put in a message",
+                "end_gun_on": {
+                    "name": "end_gun_on",
+                    "type": "uiVariable",
+                    "displayString": "End-gun On",
+                    "showActivity": true,
                     "position": 54,
                     "hidden": false,
-                    "currentValue": "$cmds.app().test_message",
-                    "appKey": "$config.app().APP_KEY",
-                    "isTextArea": false
-                },
-                "test_output": {
-                    "name": "test_output",
-                    "type": "uiVariable",
-                    "displayString": "This is message we got",
-                    "showActivity": true,
-                    "position": 55,
-                    "hidden": false,
-                    "varType": "string",
-                    "currentValue": "$tag.app().test_output:string:\"\""
-                },
-                "battery": {
-                    "name": "battery",
-                    "type": "uiSubmodule",
-                    "displayString": "Battery Module",
-                    "showActivity": true,
-                    "position": 59,
-                    "hidden": false,
-                    "children": {
-                        "voltage": {
-                            "name": "voltage",
-                            "type": "uiVariable",
-                            "displayString": "Battery Voltage",
-                            "showActivity": true,
-                            "position": 56,
-                            "hidden": false,
-                            "varType": "float",
-                            "currentValue": "$tag.app().battery_voltage:number:0",
-                            "decPrecision": 2,
-                            "ranges": [
-                                {
-                                    "min": 0,
-                                    "max": 10,
-                                    "colour": "red",
-                                    "show_on_graph": true,
-                                    "label": "Low"
-                                },
-                                {
-                                    "min": 10,
-                                    "max": 20,
-                                    "colour": "green",
-                                    "show_on_graph": true,
-                                    "label": "Normal"
-                                },
-                                {
-                                    "min": 20,
-                                    "max": 30,
-                                    "colour": "blue",
-                                    "show_on_graph": true,
-                                    "label": "High"
-                                }
-                            ]
-                        },
-                        "low_voltage_alert": {
-                            "name": "low_voltage_alert",
-                            "type": "uiFloatInput",
-                            "displayString": "Low Voltage Alert",
-                            "position": 57,
-                            "hidden": false,
-                            "currentValue": "$cmds.app().low_voltage_alert",
-                            "appKey": "$config.app().APP_KEY"
-                        },
-                        "charge_mode": {
-                            "name": "charge_mode",
-                            "type": "uiSelect",
-                            "displayString": "Charge Mode",
-                            "position": 58,
-                            "hidden": false,
-                            "currentValue": "$cmds.app().charge_mode",
-                            "appKey": "$config.app().APP_KEY",
-                            "options": {
-                                "charge": {
-                                    "name": "charge",
-                                    "displayString": "Charge",
-                                    "type": "uiElement"
-                                },
-                                "discharge": {
-                                    "name": "discharge",
-                                    "displayString": "Discharge",
-                                    "type": "uiElement"
-                                },
-                                "idle": {
-                                    "name": "idle",
-                                    "displayString": "Idle",
-                                    "type": "uiElement"
-                                }
-                            }
-                        }
-                    }
+                    "varType": "bool",
+                    "currentValue": "$tag.app().end_gun_on:boolean:false"
                 }
             }
         }

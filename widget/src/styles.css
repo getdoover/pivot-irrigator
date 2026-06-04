@@ -1,0 +1,101 @@
+.pwm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  font-family: system-ui, sans-serif;
+}
+
+.pwm-msg {
+  padding: 24px;
+  color: #555;
+  font-family: system-ui, sans-serif;
+}
+
+.pwm-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pwm-pills {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.pwm-pill {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.pwm-pill.active {
+  background: #2c7fb8;
+  border-color: #2c7fb8;
+  color: #fff;
+}
+
+.pwm-select {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 13px;
+  max-width: 100%;
+}
+
+.pwm-note,
+.pwm-warn {
+  font-size: 12px;
+  color: #888;
+}
+
+.pwm-warn {
+  color: #b45309;
+}
+
+.pwm-mapwrap {
+  position: relative;
+  width: 100%;
+}
+
+.pwm-legend {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.pwm-legend-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.pwm-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pwm-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.pwm-stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: #334155;
+}

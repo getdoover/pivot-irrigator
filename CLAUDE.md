@@ -1,33 +1,54 @@
-# Doover App Template
+# Pivot Irrigator
 
-A template for building device applications on the Doover IoT platform using pydoover 1.0.
+A monorepo of Doover apps for centre-pivot irrigators, built on pydoover 1.3+.
+See `README.md` for the product overview.
+
+## Apps in this repo
+
+- **`src/pivot_water_map/`** — a *processor* (Lambda) that hosts the as-applied
+  water-map **widget** (`widget/`). It does no server-side work; all map
+  computation is client-side in the widget. Subclasses `pydoover.processor.Application`.
+- **`src/valley_irrigator/`** — a *device app* (container) skeleton that will
+  talk to a Valley panel via VCP over RS232. Subclasses `pydoover.docker.Application`.
+- **`simulators/pivot/`** — a device app that produces test pivot data and
+  backfills history via `log_history`.
 
 ## Commands
 
 ```bash
-uv run pytest tests -v          # Run tests
-uv run export-config             # Write config_schema into doover_config.json
-uv run export-ui                 # Write ui_schema into doover_config.json (required to publish)
-doover app run                   # Run app + simulator locally via docker-compose
+uv run pytest tests -v             # Run tests
+uv run export-config-watermap      # Write pivot_water_map config_schema into doover_config.json
+uv run export-ui-watermap          # Write pivot_water_map ui_schema (hosts the widget)
+uv run export-config-valley        # Write valley_irrigator config_schema
+uv run export-ui-valley            # Write valley_irrigator ui_schema
+npm --prefix widget run build      # Build the widget bundle (needs the doover-js tarball)
+doover app run                     # Run simulator + valley device app via docker-compose
 ```
 
 ## Project Structure
 
 ```
-src/app_template/
-  __init__.py        # Entry point — run_app(SampleApplication())
-  application.py     # Main app class (setup, main_loop, UI handlers)
-  app_config.py      # Config schema — class-level declarations
-  app_tags.py        # Runtime state tags — bound to UI elements
-  app_ui.py          # UI definition — subclasses ui.UI
-  app_state.py       # State machine using pydoover.state.StateMachine
-simulators/sample/   # Simulator app that produces test data
-tests/               # pytest suite
+src/pivot_water_map/   # Processor / UI host for the map widget
+  __init__.py          # Lambda handler — run_app(PivotWaterMapApp())
+  application.py        # processor.Application (on_deployment only)
+  app_config.py        # Config: TagSource mappings, geometry, units, dormancy, maps key
+  app_ui.py            # ui.RemoteComponent hosting the widget
+src/valley_irrigator/  # Device app skeleton (VCP/RS232 — TODO)
+  __init__.py          # Entry point — run_app(ValleyIrrigatorApplication())
+  application.py        # docker.Application (setup, main_loop)
+  app_config.py        # Serial config
+  app_tags.py          # flow / position / end-gun / pressure tags
+  app_ui.py            # UI variables (with log_threshold to log history)
+widget/                # RemoteComponent (rspack + Module Federation, Google Maps)
+  src/PivotWaterMapWidget.tsx   # React widget
+  src/lib/pivot.ts              # Pure computation: events, sector depth, GeoJSON
+simulators/pivot/      # Simulator producing test pivot data
+tests/                 # pytest suite
 ```
 
-## pydoover 1.0 Patterns
+## pydoover Patterns
 
-This app uses the pydoover 1.0 declarative API. Key patterns:
+The device app + simulator use the pydoover declarative API. Key patterns:
 
 ### Application class (application.py)
 - Set `config_cls`, `tags_cls`, `ui_cls` as class attributes — framework wires them up automatically
