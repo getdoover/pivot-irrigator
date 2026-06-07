@@ -11,6 +11,8 @@ import {
   buildGeoJSON,
   depthColour,
   zoomForRadius,
+  toCSV,
+  downsample,
   type PivotConfig,
   type Sample,
 } from "../src/lib/pivot.ts";
@@ -206,6 +208,46 @@ test("buildGeoJSON yields closed polygons only for watered sectors", () => {
 });
 
 // --- colour & zoom ----------------------------------------------------------
+
+test("buildGeoJSON enriches properties and attaches metadata", () => {
+  const cfg = baseConfig({ sectorResolutionDeg: 10, centreLat: -27.5, centreLon: 151.9 });
+  const t0 = 1_000_000_000_000;
+  const samples: Sample[] = [
+    { t: t0, flow: 25, angle: 0, endGun: null },
+    { t: t0 + 600_000, flow: 25, angle: 30, endGun: null },
+  ];
+  const res = computeSectorDepths(samples, cfg);
+  const fc = buildGeoJSON(res, cfg, { foo: "bar" });
+  assert.equal(fc.metadata?.foo, "bar");
+  const f = fc.features[0];
+  assert.ok(typeof f.properties.bearingFromDeg === "number");
+  assert.ok(typeof f.properties.bearingToDeg === "number");
+  assert.ok(f.properties.radiusM > 0);
+});
+
+test("toCSV emits a header and one row per watered sector", () => {
+  const cfg = baseConfig({ sectorResolutionDeg: 10 });
+  const t0 = 1_000_000_000_000;
+  const samples: Sample[] = [
+    { t: t0, flow: 25, angle: 0, endGun: null },
+    { t: t0 + 600_000, flow: 25, angle: 20, endGun: null },
+  ];
+  const res = computeSectorDepths(samples, cfg);
+  const csv = toCSV(res, cfg);
+  const lines = csv.split("\n");
+  assert.equal(lines[0], "sector,bearing_from_deg,bearing_to_deg,radius_m,depth_mm");
+  const watered = Array.from(res.depthMm).filter((d) => d > 0).length;
+  assert.equal(lines.length - 1, watered);
+});
+
+test("downsample keeps first and last and caps length", () => {
+  const arr = Array.from({ length: 1000 }, (_, i) => i);
+  const out = downsample(arr, 100);
+  assert.ok(out.length <= 101);
+  assert.equal(out[0], 0);
+  assert.equal(out[out.length - 1], 999);
+  assert.deepEqual(downsample([1, 2, 3], 100), [1, 2, 3]);
+});
 
 test("depthColour endpoints and zoom range", () => {
   assert.match(depthColour(0, 10), /^rgb\(/);

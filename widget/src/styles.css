@@ -99,3 +99,132 @@
   font-size: 13px;
   color: #334155;
 }
+
+.pwm-spacer {
+  flex: 1 1 auto;
+}
+
+.pwm-timeline {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 4px 4px 0;
+  background: #fff;
+}
+
+.pwm-selrange {
+  font-size: 12px;
+  color: #475569;
+  margin-top: -2px;
+}
+
+.pwm-chartlegend {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: #475569;
+  padding: 2px 6px 0;
+}
+
+.pwm-legitem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font-size: 12px;
+  color: #475569;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.pwm-legitem:hover {
+  background: #f1f5f9;
+}
+
+.pwm-legitem.off {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.pwm-chartlegend i {
+  display: inline-block;
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.pwm-pill:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.pwm-export {
+  position: relative;
+  display: inline-flex;
+}
+
+.pwm-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 6px;
+  color: #334155;
+  cursor: pointer;
+}
+
+.pwm-iconbtn:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.pwm-iconbtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.pwm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+}
+
+.pwm-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 40;
+  min-width: 130px;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+}
+
+.pwm-menu-title {
+  font-size: 11px;
+  color: #94a3b8;
+  padding: 4px 8px 2px;
+}
+
+.pwm-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  padding: 7px 8px;
+  font-size: 13px;
+  color: #1e293b;
+  cursor: pointer;
+}
+
+.pwm-menu-item:hover {
+  background: #f1f5f9;
+}
