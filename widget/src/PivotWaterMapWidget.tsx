@@ -72,6 +72,7 @@ interface ChartPoint {
 const FLOW_COLOUR = "#2c7fb8";
 const SPEED_COLOUR = "#dc2626";
 const SPEED_MAX_GAP_MIN = 60; // don't infer speed across gaps longer than this
+const FLOW_FILL_MAX_GAP_MIN = 60; // hold last flow across empty buckets up to this gap
 
 const WINDOW_OPTIONS = [2, 7, 30, 90];
 const DEFAULT_WINDOW_DAYS = 2;
@@ -401,7 +402,9 @@ function PivotWaterMapInner({ uiElement }: { uiElement?: UiElement }) {
 
   // Resample flow onto a UNIFORM time grid across the full selected window
   // (7/30/90 d). Equal-time buckets mean the brush travels proportionally to
-  // time, not to where the data happens to be; empty buckets read as zero flow.
+  // time, not to where the data happens to be. Tags are sample-and-hold, so an
+  // empty bucket means "unchanged", not "zero" — hold the last value forward,
+  // but only across gaps short enough to plausibly be the publish interval.
   const chartData = useMemo<ChartPoint[]>(() => {
     const end = Date.now();
     const start = end - windowDays * 86_400_000;
@@ -434,11 +437,23 @@ function PivotWaterMapInner({ uiElement }: { uiElement?: UiElement }) {
       }
       prevI = i;
     }
+    const fillMaxMs = FLOW_FILL_MAX_GAP_MIN * 60_000;
     const data: ChartPoint[] = [];
+    let lastFlow = 0;
+    let lastFlowT = -Infinity;
     for (let i = 0; i < n; i++) {
+      const t = Math.round(start + i * bucketMs);
+      let flow = 0;
+      if (cnt[i]) {
+        flow = sum[i] / cnt[i];
+        lastFlow = flow;
+        lastFlowT = t;
+      } else if (t - lastFlowT <= fillMaxMs) {
+        flow = lastFlow;
+      }
       data.push({
-        t: Math.round(start + i * bucketMs),
-        flow: cnt[i] ? sum[i] / cnt[i] : 0,
+        t,
+        flow,
         speed: Number.isNaN(speed[i]) ? null : speed[i],
       });
     }
