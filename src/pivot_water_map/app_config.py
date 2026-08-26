@@ -86,6 +86,40 @@ class PivotWaterMapConfig(config.Schema):
         description="Angular width of each map sector, in degrees.",
         name="sector_resolution_deg",
     )
+    track_responsiveness = config.Number(
+        "Track Responsiveness",
+        default=0.001,
+        required=False,
+        minimum=0,
+        description="How readily the rotation-speed estimate follows the "
+        "position tag. The tag only updates in steps, so a small reading error "
+        "lands as one fast sector beside one slow sector -- a stripe the "
+        "machine never applied. A Kalman filter over the track removes that. "
+        "Lower is smoother; higher follows real stop/start more closely.\n\n"
+        "Measured on a simulated 24 h revolution with a real 30 min stop:\n"
+        "  off     map varies 7-12%, stop fully visible\n"
+        "  0.01    map varies  2-7%, stop 103% visible, speed 98% of true\n"
+        "  0.001   map varies  2-3%, stop  86% visible, speed 97% of true "
+        "(default)\n"
+        "  0.0001  map varies  1-2%, stop  60% visible, speed 93% of true\n"
+        "  0.00001 map varies  0-2%, stop  38% visible, speed 87% of true\n\n"
+        "Below the default the map barely improves while real stops disappear "
+        "and the speed chart drifts low, so there is little reason to go there. "
+        "0 disables filtering entirely.",
+        name="track_responsiveness",
+    )
+    reversal_threshold_deg = config.Number(
+        "Direction Reversal Threshold (deg)",
+        default=5.0,
+        required=False,
+        minimum=0,
+        description="How far the pivot must turn back before it counts as a new "
+        "pass rather than reading noise. Each pass is filtered on its own, so "
+        "this must sit above the position error and below the shortest real "
+        "reversal. 5 deg is about 20 m of arc on a 225 m machine. 0 uses that "
+        "default.",
+        name="reversal_threshold_deg",
+    )
     position_offset_deg = config.Number(
         "Position Offset (deg)",
         default=0.0,

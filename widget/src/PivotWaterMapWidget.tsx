@@ -27,6 +27,7 @@ import {
   buildGeoJSON,
   buildSamples,
   computeEvents,
+  buildTrack,
   computeSectorDepths,
   legendStops,
   toCSV,
@@ -58,6 +59,8 @@ interface RawConfig {
   wetted_radius_m?: number;
   end_gun_radius_m?: number;
   sector_resolution_deg?: number;
+  track_responsiveness?: number;
+  reversal_threshold_deg?: number;
   position_offset_deg?: number;
   dormancy_days?: number;
   google_maps_api_key?: string;
@@ -119,6 +122,8 @@ function toPivotConfig(raw: RawConfig): PivotConfig | null {
     wettedRadiusM: raw.wetted_radius_m,
     endGunRadiusM: raw.end_gun_radius_m ?? 0,
     sectorResolutionDeg: raw.sector_resolution_deg ?? 1,
+    trackResponsiveness: raw.track_responsiveness ?? 0.001,
+    reversalThresholdDeg: raw.reversal_threshold_deg ?? 5,
     positionOffsetDeg: raw.position_offset_deg ?? 0,
     dormancyDays: raw.dormancy_days ?? 5,
     mapsApiKey: raw.google_maps_api_key ?? "",
@@ -412,7 +417,6 @@ function PivotWaterMapInner({ uiElement }: { uiElement?: UiElement }) {
     const bucketMs = (end - start) / n;
     const sum = new Float64Array(n);
     const cnt = new Int32Array(n);
-    const ang = new Float64Array(n).fill(NaN); // last position seen in each bucket
     for (const s of samples) {
       const i = Math.floor((s.t - start) / bucketMs);
       if (i < 0 || i >= n) continue;
@@ -420,22 +424,55 @@ function PivotWaterMapInner({ uiElement }: { uiElement?: UiElement }) {
         sum[i] += s.flow;
         cnt[i] += 1;
       }
-      if (s.angle != null) ang[i] = s.angle;
     }
-    // Angular speed (deg/min) from the net position change between consecutive
-    // populated buckets — wrap-aware, and skipped across long gaps.
-    const speed = new Float64Array(n).fill(NaN);
-    let prevI = -1;
-    for (let i = 0; i < n; i++) {
-      if (Number.isNaN(ang[i])) continue;
-      if (prevI >= 0) {
-        const dtMin = ((i - prevI) * bucketMs) / 60_000;
-        if (dtMin > 0 && dtMin <= SPEED_MAX_GAP_MIN) {
-          const dDeg = Math.abs(((ang[i] - ang[prevI] + 540) % 360) - 180);
-          speed[i] = dDeg / (dtMin / 60); // deg per hour
+    // Angular speed (deg/hr) from the SAME filtered track the sector map uses,
+    // so the trace always explains the map.
+    //
+    // Three things were wrong with reading it off the bucket grid:
+    //  - a gap's speed was written to a single bucket, so one reading rendered
+    //    as an isolated needle with nulls either side rather than a line.
+    //  - dt came from bucket *indices*, so it was quantised to the bucket width
+    //    and the SPEED_MAX_GAP_MIN guard rejected every pair once a bucket grew
+    //    past 60 min. That silently emptied the trace on the 30 and 90 day
+    //    windows, which are 72 and 216 min per bucket. Both now use real fix
+    //    timestamps.
+    //  - the wrap-aware delta was passed through Math.abs, so a reversed pivot
+    //    read as forward travel.
+    //
+    // Accumulate degrees and milliseconds per bucket and divide at the end, so a
+    // bucket reports the time-weighted average over it: a gap wider than a
+    // bucket spreads across the buckets it covers, and several gaps inside one
+    // bucket combine instead of the last silently overwriting the rest.
+    const degB = new Float64Array(n);
+    const timeMs = new Float64Array(n);
+    if (cfg) {
+      const track = buildTrack(samples, cfg);
+      for (let k = 0; k < track.length - 1; k++) {
+        const a = track[k];
+        const b = track[k + 1];
+        const spanMs = b.t - a.t;
+        if (spanMs <= 0 || spanMs / 60_000 > SPEED_MAX_GAP_MIN) continue;
+        // Speed comes from the filter's own velocity state where available.
+        // Magnitude, not signed: a reversed pass is still travel, and clamping
+        // it to zero would draw those stretches as a flat zero line.
+        const vAvg = a.v != null && b.v != null ? (a.v + b.v) / 2 : null;
+        const swept =
+          vAvg != null ? Math.abs(vAvg) * (spanMs / 60_000) : Math.abs(b.a - a.a);
+        const i0 = Math.max(0, Math.floor((a.t - start) / bucketMs));
+        const i1 = Math.min(n - 1, Math.floor((b.t - start) / bucketMs));
+        for (let i = i0; i <= i1; i++) {
+          const lo = Math.max(a.t, start + i * bucketMs);
+          const hi = Math.min(b.t, start + (i + 1) * bucketMs);
+          const overlap = hi - lo;
+          if (overlap <= 0) continue;
+          timeMs[i] += overlap;
+          degB[i] += swept * (overlap / spanMs);
         }
       }
-      prevI = i;
+    }
+    const speed = new Float64Array(n).fill(NaN);
+    for (let i = 0; i < n; i++) {
+      if (timeMs[i] > 0) speed[i] = degB[i] / (timeMs[i] / 3_600_000); // deg per hour
     }
     const fillMaxMs = FLOW_FILL_MAX_GAP_MIN * 60_000;
     const data: ChartPoint[] = [];

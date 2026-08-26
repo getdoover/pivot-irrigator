@@ -222,6 +222,34 @@
                     "default": 1.0,
                     "x-position": 8
                 },
+                "track_responsiveness": {
+                    "title": "Track Responsiveness",
+                    "x-name": "track_responsiveness",
+                    "x-hidden": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "How readily the rotation-speed estimate follows the position tag. The tag only updates in steps, so a small reading error lands as one fast sector beside one slow sector -- a stripe the machine never applied. A Kalman filter over the track removes that. Lower is smoother; higher follows real stop/start more closely.\n\nMeasured on a simulated 24 h revolution with a real 30 min stop:\n  off     map varies 7-12%, stop fully visible\n  0.01    map varies  2-7%, stop 103% visible, speed 98% of true\n  0.001   map varies  2-3%, stop  86% visible, speed 97% of true (default)\n  0.0001  map varies  1-2%, stop  60% visible, speed 93% of true\n  0.00001 map varies  0-2%, stop  38% visible, speed 87% of true\n\nBelow the default the map barely improves while real stops disappear and the speed chart drifts low, so there is little reason to go there. 0 disables filtering entirely.",
+                    "default": 0.001,
+                    "x-position": 9,
+                    "minimum": 0
+                },
+                "reversal_threshold_deg": {
+                    "title": "Direction Reversal Threshold (deg)",
+                    "x-name": "reversal_threshold_deg",
+                    "x-hidden": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "x-required": false,
+                    "description": "How far the pivot must turn back before it counts as a new pass rather than reading noise. Each pass is filtered on its own, so this must sit above the position error and below the shortest real reversal. 5 deg is about 20 m of arc on a 225 m machine. 0 uses that default.",
+                    "default": 5.0,
+                    "x-position": 10,
+                    "minimum": 0
+                },
                 "position_offset_deg": {
                     "title": "Position Offset (deg)",
                     "x-name": "position_offset_deg",
@@ -233,7 +261,7 @@
                     "x-required": false,
                     "description": "Calibration offset added to the reported angle to align it with true North (clockwise positive).",
                     "default": 0.0,
-                    "x-position": 9
+                    "x-position": 11
                 },
                 "dormancy_days": {
                     "title": "Event Dormancy (days)",
@@ -246,7 +274,7 @@
                     "x-required": false,
                     "description": "A new irrigation event starts when flow resumes after at least this many days without flow.",
                     "default": 5.0,
-                    "x-position": 10
+                    "x-position": 12
                 },
                 "google_maps_api_key": {
                     "title": "Google Maps API Key",
@@ -259,7 +287,7 @@
                     "x-required": false,
                     "description": "Google Maps JavaScript API key used to render the map. Set this per-deployment \u2014 it is intentionally not committed to the repo.",
                     "default": null,
-                    "x-position": 11
+                    "x-position": 13
                 },
                 "dv_app_position": {
                     "title": "Position",
@@ -272,7 +300,7 @@
                     "x-required": false,
                     "description": "Position of Application in UI Structure. Smaller numbers are closer to the top.",
                     "default": 150,
-                    "x-position": 12,
+                    "x-position": 14,
                     "minimum": 0
                 }
             },

@@ -2,6 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  unwrapAngles,
+  splitRuns,
+  smoothTrack,
   flowToM3s,
   normaliseAngle,
   buildSamples,
@@ -30,6 +33,8 @@ function baseConfig(overrides: Partial<PivotConfig> = {}): PivotConfig {
     wettedRadiusM: 100,
     endGunRadiusM: 0,
     sectorResolutionDeg: 10,
+    trackResponsiveness: 0,
+    reversalThresholdDeg: 5,
     positionOffsetDeg: 0,
     dormancyDays: 5,
     mapsApiKey: "",
@@ -255,4 +260,80 @@ test("depthColour endpoints and zoom range", () => {
   assert.equal(depthColour(5, 0), "rgb(44,127,184)"); // maxDepth 0 guard
   const z = zoomForRadius(-27.5, 400);
   assert.ok(z >= 5 && z <= 20);
+});
+
+
+// --- track: unwrapping, runs, filtering -------------------------------------
+
+const MIN = 60_000;
+
+test("unwrapAngles removes the 0/360 seam", () => {
+  // 2 deg per step across north: 356, 358, 0, 2, 4
+  const raw = [356, 358, 0, 2, 4].map((angle, i) => ({ t: i * MIN, angle }));
+  const out = unwrapAngles(raw);
+  const steps = out.slice(1).map((p, i) => p.a - out[i].a);
+  for (const s of steps) assert.ok(Math.abs(s - 2) < 1e-9, `expected +2 deg, got ${s}`);
+  assert.equal(out[0].a, 356);
+  assert.equal(out[out.length - 1].a, 364, "must run past 360, not wrap back");
+});
+
+test("unwrapAngles handles reverse rotation across the seam", () => {
+  const raw = [4, 2, 0, 358, 356].map((angle, i) => ({ t: i * MIN, angle }));
+  const steps = unwrapAngles(raw).slice(1).map((p, i, arr) => p.a - unwrapAngles(raw)[i].a);
+  for (const s of steps) assert.ok(Math.abs(s + 2) < 1e-9, `expected -2 deg, got ${s}`);
+});
+
+test("a full revolution accumulates, it does not fold back to zero", () => {
+  const raw = Array.from({ length: 37 }, (_, i) => ({ t: i * MIN, angle: (i * 10) % 360 }));
+  const out = unwrapAngles(raw);
+  assert.ok(Math.abs(out[out.length - 1].a - 360) < 1e-6, `got ${out[out.length - 1].a}`);
+});
+
+test("splitRuns separates a reversal but ignores reading noise", () => {
+  const jitter = Array.from({ length: 20 }, (_, i) => ({ t: i * MIN, a: i * 2 + (i % 2 ? 1 : -1) }));
+  assert.equal(splitRuns(jitter, 5).length, 1, "2 deg wobble is not a turn");
+
+  const turn: Array<{ t: number; a: number }> = [];
+  for (let i = 0; i <= 30; i++) turn.push({ t: i * MIN, a: i * 2 });   // out to 60
+  for (let i = 1; i <= 30; i++) turn.push({ t: (30 + i) * MIN, a: 60 - i * 2 }); // back
+  const runs = splitRuns(turn, 5);
+  assert.equal(runs.length, 2);
+  assert.equal(runs[0][runs[0].length - 1].a, 60, "first leg runs to the turn");
+});
+
+test("filtering preserves a reversal instead of collapsing it", () => {
+  const turn: Array<{ t: number; a: number }> = [];
+  for (let i = 0; i <= 30; i++) turn.push({ t: i * MIN, a: i * 2 });
+  for (let i = 1; i <= 30; i++) turn.push({ t: (30 + i) * MIN, a: 60 - i * 2 });
+  const sm = smoothTrack(turn, 0.001, 5, 1);
+  const peak = Math.max(...sm.map((p) => p.a));
+  assert.ok(peak > 55, `turnaround should survive, peaked at ${peak.toFixed(1)}`);
+  assert.ok(sm[sm.length - 1].a < 10, `should return near the start, ended at ${sm[sm.length - 1].a.toFixed(1)}`);
+});
+
+test("filtering reports a velocity and zero responsiveness does not", () => {
+  const fx = Array.from({ length: 20 }, (_, i) => ({ t: i * MIN, a: i * 0.25 }));
+  const on = smoothTrack(fx, 0.001, 5, 1);
+  assert.ok(on.every((p) => p.v != null), "filtered track must carry v");
+  const near = on.slice(5, 15).map((p) => p.v as number);
+  for (const v of near) assert.ok(Math.abs(v - 0.25) < 0.05, `expected ~0.25 deg/min, got ${v}`);
+  assert.equal(smoothTrack(fx, 0), fx, "0 returns the raw fixes");
+});
+
+test("sector depths are unchanged by the seam", () => {
+  // identical sweeps, one crossing north and one not
+  const mk = (from: number) => {
+    const rows: Array<{ t: number; flow: number; angle: number }> = [];
+    for (let i = 0; i <= 60; i++) rows.push({ t: i * MIN, flow: 100, angle: (from + i) % 360 });
+    return buildSamples(rows);
+  };
+  const cfg = baseConfig({ sectorResolutionDeg: 10, trackResponsiveness: 0.001 });
+  const across = computeSectorDepths(mk(340), cfg);
+  const clear = computeSectorDepths(mk(100), cfg);
+  const tot = (r: { depthMm: Float64Array }) =>
+    Array.from(r.depthMm).reduce((a, b) => a + b, 0);
+  assert.ok(
+    Math.abs(tot(across) - tot(clear)) / tot(clear) < 0.02,
+    `crossing north must not change the total: ${tot(across).toFixed(2)} vs ${tot(clear).toFixed(2)}`,
+  );
 });
